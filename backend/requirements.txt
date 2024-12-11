@@ -1,0 +1,6 @@
+fastapi==0.68.1
+uvicorn==0.15.0
+networkx==2.6.3
+pyyaml==5.4.1
+python-multipart==0.0.5
+pydantic==1.8.2

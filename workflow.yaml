@@ -1,0 +1,18 @@
+start:
+  next: validate
+  metadata:
+    description: "Start point"
+
+validate:
+  next: process
+  metadata:
+    description: "Validation step"
+
+process:
+  next: save
+  metadata:
+    description: "Processing step"
+
+save:
+  metadata:
+    description: "Final step"
