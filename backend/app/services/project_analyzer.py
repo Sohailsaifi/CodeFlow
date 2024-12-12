@@ -2,8 +2,6 @@ import os
 import ast
 import networkx as nx
 from typing import Dict, List, Set
-import radon.complexity as radon_cc
-from radon.raw import analyze
 from pathlib import Path
 
 class ProjectAnalyzer:
@@ -12,7 +10,7 @@ class ProjectAnalyzer:
         self.modules = set()
         self.imports = {}
         self.dead_code = set()
-        
+
     def analyze_project(self, project_path: str) -> nx.DiGraph:
         """Analyze entire project directory."""
         for root, _, files in os.walk(project_path):
@@ -26,35 +24,32 @@ class ProjectAnalyzer:
 
     def _analyze_file(self, file_path: str):
         """Analyze single Python file."""
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Add file node
-        file_name = os.path.basename(file_path)
-        self.graph.add_node(
-            file_name,
-            type="file",
-            metadata=self._get_file_metrics(content)
-        )
-        
-        # Parse and analyze code
         try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Add file node
+            file_name = os.path.basename(file_path)
+            self.graph.add_node(
+                file_name,
+                type="file",
+                metadata=self._get_file_metrics(content)
+            )
+            
+            # Parse and analyze code
             tree = ast.parse(content)
             self._analyze_imports(tree, file_name)
             self._analyze_functions(tree, file_name)
-        except SyntaxError:
-            self.graph.nodes[file_name]['metadata']['error'] = 'Syntax Error'
+        except Exception as e:
+            print(f"Error analyzing file {file_path}: {str(e)}")
 
     def _get_file_metrics(self, content: str) -> Dict:
         """Calculate file metrics."""
-        raw_metrics = analyze(content)
         return {
-            'loc': raw_metrics.loc,
-            'lloc': raw_metrics.lloc,
-            'sloc': raw_metrics.sloc,
-            'comments': raw_metrics.comments,
-            'multi': raw_metrics.multi,
-            'blank': raw_metrics.blank
+            'loc': len(content.splitlines()),
+            'functions': 0,
+            'classes': 0,
+            'imports': 0
         }
 
     def _analyze_imports(self, tree: ast.AST, file_name: str):
@@ -66,30 +61,28 @@ class ProjectAnalyzer:
                     self.graph.add_edge(
                         file_name,
                         name.name,
-                        type="import"
+                        type="import",
+                        relationship="imports"
                     )
             elif isinstance(node, ast.ImportFrom):
-                module = node.module
+                module = node.module or ''
                 self.imports.setdefault(file_name, set()).add(module)
                 self.graph.add_edge(
                     file_name,
                     module,
-                    type="import_from"
+                    type="import_from",
+                    relationship="imports_from"
                 )
 
     def _analyze_functions(self, tree: ast.AST, file_name: str):
         """Analyze functions in the file."""
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
-                # Calculate cyclomatic complexity
-                complexity = radon_cc.cc_visit(node)
-                
                 function_id = f"{file_name}::{node.name}"
                 self.graph.add_node(
                     function_id,
                     type="function",
                     metadata={
-                        'complexity': complexity,
                         'loc': len(node.body),
                         'args': [arg.arg for arg in node.args.args],
                         'docstring': ast.get_docstring(node)
@@ -97,7 +90,12 @@ class ProjectAnalyzer:
                 )
                 
                 # Add edge from file to function
-                self.graph.add_edge(file_name, function_id, type="contains")
+                self.graph.add_edge(
+                    file_name, 
+                    function_id, 
+                    type="contains",
+                    relationship="contains"
+                )
                 
                 # Analyze function calls
                 self._analyze_function_calls(node, function_id)
@@ -111,15 +109,16 @@ class ProjectAnalyzer:
                     self.graph.add_edge(
                         function_id,
                         called_function,
-                        type="calls"
+                        type="calls",
+                        relationship="calls"
                     )
 
     def _analyze_dead_code(self):
         """Identify potentially dead code."""
         called_functions = set()
         for _, _, data in self.graph.edges(data=True):
-            if data.get('type') == 'calls':
-                called_functions.add(data['target'])
+            if data.get('relationship') == 'calls':
+                called_functions.add(data.get('target', ''))
         
         for node, data in self.graph.nodes(data=True):
             if (data.get('type') == 'function' and 

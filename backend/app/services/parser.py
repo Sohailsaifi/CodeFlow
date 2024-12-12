@@ -10,40 +10,111 @@ class FlowchartParser:
     def parse_python_code(self, content: str) -> nx.DiGraph:
         """Parse Python code and extract function relationships."""
         tree = ast.parse(content)
-        builtin_functions = dir(__builtins__)
+        builtin_functions = set(dir(__builtins__))
+        user_functions = {}  # Map of {function_name: full_qualified_name}
+        self.graph = nx.DiGraph()
         
-        # Track function definitions and calls
+        def get_parent_class(node):
+            """Helper function to find parent class of a function"""
+            for parent in ast.walk(tree):
+                if isinstance(parent, ast.ClassDef):
+                    for child in ast.iter_child_nodes(parent):
+                        if child is node:
+                            return parent
+            return None
+        
+        # First pass: collect all classes and functions
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+                # Add class node
                 self.graph.add_node(
-                    node.name,
-                    type="function",
+                    class_name,
+                    type="class",
                     metadata={
                         "lineno": node.lineno,
-                        "args": [arg.arg for arg in node.args.args],
                         "docstring": ast.get_docstring(node)
                     }
                 )
                 
+                # Add methods
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        method_name = f"{class_name}.{item.name}"
+                        user_functions[item.name] = method_name  # Map simple name to qualified name
+                        self.graph.add_node(
+                            method_name,
+                            type="method",
+                            metadata={
+                                "lineno": item.lineno,
+                                "args": [arg.arg for arg in item.args.args],
+                                "docstring": ast.get_docstring(item)
+                            }
+                        )
+                        # Add edge from class to method
+                        self.graph.add_edge(
+                            class_name,
+                            method_name,
+                            type="contains",
+                            relationship="contains"
+                        )
+            
+            elif isinstance(node, ast.FunctionDef):
+                parent_class = get_parent_class(node)
+                if not parent_class:  # Standalone function
+                    user_functions[node.name] = node.name
+                    self.graph.add_node(
+                        node.name,
+                        type="function",
+                        metadata={
+                            "lineno": node.lineno,
+                            "args": [arg.arg for arg in node.args.args],
+                            "docstring": ast.get_docstring(node)
+                        }
+                    )
+        
+        # Second pass: analyze function calls
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                current_function = node.name
+                parent_class = get_parent_class(node)
+                if parent_class:
+                    current_function = f"{parent_class.name}.{node.name}"
+                
                 # Analyze function body for calls
                 for child in ast.walk(node):
-                    if isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
-                        target_func = child.func.id
-                        if target_func in builtin_functions:
-                            self.graph.add_node(
-                                target_func,
-                                type="builtin",
-                                metadata={"description": f"Python built-in function: {target_func}"}
-                            )
-                            self.graph.add_edge(
-                                node.name,
-                                target_func,
-                                type="builtin"
-                            )
-                        else:
-                            self.graph.add_edge(node.name, target_func)
+                    if isinstance(child, ast.Call):
+                        called_func = None
+                        
+                        # Handle different types of calls
+                        if isinstance(child.func, ast.Name):
+                            # Direct function call
+                            called_func = child.func.id
+                        elif isinstance(child.func, ast.Attribute):
+                            # Method call (e.g., self.method or obj.method)
+                            if isinstance(child.func.value, ast.Name):
+                                if child.func.value.id == 'self':
+                                    # self.method() call
+                                    if parent_class:
+                                        called_func = f"{parent_class.name}.{child.func.attr}"
+                                else:
+                                    # Could be a call to another object's method
+                                    called_func = child.func.attr
+                        
+                        # Add edge if it's calling a user-defined function or method
+                        if called_func and called_func not in builtin_functions:
+                            target_func = user_functions.get(called_func, called_func)
+                            if target_func in [n for n in self.graph.nodes()]:
+                                self.graph.add_edge(
+                                    current_function,
+                                    target_func,
+                                    type="calls",
+                                    relationship="calls"
+                                )
         
         return self.graph
+
+
 
     def parse_yaml(self, content: str) -> nx.DiGraph:
         """Parse YAML workflow definitions."""
