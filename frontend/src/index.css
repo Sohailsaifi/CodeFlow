@@ -1,3 +1,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+.cy-tooltip {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  transition: all 0.2s ease;
+  max-width: 400px;
+}
+
+.cy-tooltip div {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  border: 1px solid #e5e7eb;
+}

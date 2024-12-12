@@ -2,14 +2,19 @@ import networkx as nx
 import ast
 import yaml
 from typing import Dict, Optional
+from .code_metrics import CodeMetricsAnalyzer
+
 
 class FlowchartParser:
     def __init__(self):
         self.graph = nx.DiGraph()
 
+
     def parse_python_code(self, content: str) -> nx.DiGraph:
         """Parse Python code and extract function relationships."""
         tree = ast.parse(content)
+        metrics_analyzer = CodeMetricsAnalyzer()
+
         builtin_functions = set(dir(__builtins__))
         user_functions = {}  # Map of {function_name: full_qualified_name}
         self.graph = nx.DiGraph()
@@ -39,16 +44,17 @@ class FlowchartParser:
                 
                 # Add methods
                 for item in node.body:
+                    # Changed this condition - it was checking 'node' instead of 'item'
                     if isinstance(item, ast.FunctionDef):
+                        metrics = metrics_analyzer.analyze_function(item)  # Changed to use item
                         method_name = f"{class_name}.{item.name}"
-                        user_functions[item.name] = method_name  # Map simple name to qualified name
+                        user_functions[item.name] = method_name
                         self.graph.add_node(
                             method_name,
                             type="method",
                             metadata={
-                                "lineno": item.lineno,
-                                "args": [arg.arg for arg in item.args.args],
-                                "docstring": ast.get_docstring(item)
+                                **metrics,
+                                'is_dead_code': True  # Will be updated later
                             }
                         )
                         # Add edge from class to method
@@ -62,16 +68,17 @@ class FlowchartParser:
             elif isinstance(node, ast.FunctionDef):
                 parent_class = get_parent_class(node)
                 if not parent_class:  # Standalone function
+                    metrics = metrics_analyzer.analyze_function(node)  # Added metrics for standalone functions
                     user_functions[node.name] = node.name
                     self.graph.add_node(
                         node.name,
                         type="function",
                         metadata={
-                            "lineno": node.lineno,
-                            "args": [arg.arg for arg in node.args.args],
-                            "docstring": ast.get_docstring(node)
+                            **metrics,
+                            'is_dead_code': True
                         }
                     )
+                
         
         # Second pass: analyze function calls
         for node in ast.walk(tree):
