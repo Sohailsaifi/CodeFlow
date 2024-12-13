@@ -54,7 +54,7 @@ A sophisticated Python code analysis and visualization tool that automatically g
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/dynamic-flowchart-generator.git
+git clone https://github.com/Sohailsaifi/CodeFlow.git
 cd dynamic-flowchart-generator
 ```
 
