@@ -7,12 +7,24 @@ class CodeMetricsAnalyzer:
     
     def analyze_function(self, node: ast.FunctionDef) -> Dict:
         """Analyze a single function/method for various metrics."""
-        # Calculate complexity and metrics without needing source code
-        complexity = self._calculate_complexity(node)
-        
+        def count_actual_code_lines(node):
+            # Get start and end line numbers
+            min_line = node.lineno
+            max_line = 0
+            
+            for child in ast.walk(node):
+                if hasattr(child, 'lineno'):
+                    min_line = min(min_line, child.lineno)
+                    if hasattr(child, 'end_lineno'):
+                        max_line = max(max_line, child.end_lineno)
+                    else:
+                        max_line = max(max_line, child.lineno)
+            
+            return max_line - min_line + 1
+
         metrics = {
-            'complexity': complexity,
-            'lines': len(list(ast.walk(node))),  # Use AST nodes as approximation
+            'complexity': self._calculate_complexity(node),
+            'lines': count_actual_code_lines(node),  # Use the new function
             'parameters': len(node.args.args),
             'docstring': ast.get_docstring(node) or "No documentation",
             'line_number': node.lineno,
@@ -48,7 +60,7 @@ class CodeMetricsAnalyzer:
         
         # Count total nodes as a measure of function size
         node_count = len(list(ast.walk(node)))
-        if node_count > 30:
+        if node_count > 50: 
             smells.append("Large function (too many statements)")
         
         # Check number of parameters
