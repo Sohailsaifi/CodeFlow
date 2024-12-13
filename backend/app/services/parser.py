@@ -119,6 +119,31 @@ class FlowchartParser:
                                     relationship="calls"
                                 )
         
+
+        # After creating all nodes and edges, analyze dead code
+        called_functions = set()
+        for edge in self.graph.edges(data=True):
+            if edge[2].get('type') == 'calls':
+                # Use edge[1] which is the target node of the edge
+                called_functions.add(edge[1])
+        
+        # Update dead code status for all nodes
+        for node, data in self.graph.nodes(data=True):
+            if data.get('type') in ['function', 'method']:
+                # A function is not dead if:
+                # 1. It's being called
+                # 2. It's a class method (might be called externally)
+                # 3. It starts with test_ (test functions)
+                is_dead = (
+                    node not in called_functions and
+                    '.' not in node and  # Not a class method
+                    not node.startswith('test_')  # Not a test function
+                )
+                if 'metadata' not in data:
+                    data['metadata'] = {}
+                data['metadata']['is_dead_code'] = is_dead
+            
+            
         return self.graph
 
 
