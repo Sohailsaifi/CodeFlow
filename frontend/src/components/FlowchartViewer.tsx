@@ -16,16 +16,24 @@ const FlowchartViewer = () => {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Dynamic Flowchart Generator</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm p-6 border">
+        <div className="flex flex-col space-y-4">
           <ProjectUploader onUploadSuccess={handleUploadSuccess} />
-          {graphData && <ProjectGraph data={graphData} />}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+      
+      {graphData && (
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-4 border-b">
+            <h3 className="text-lg font-medium text-gray-900">Code Visualization</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Interactive flowchart showing your code's structure and relationships.
+            </p>
+          </div>
+          <ProjectGraph data={graphData} />
+        </div>
+      )}
     </div>
   );
 };
