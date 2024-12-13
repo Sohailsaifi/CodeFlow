@@ -10,7 +10,30 @@ import 'tippy.js/dist/tippy.css';
 Cytoscape.use(dagre);
 Cytoscape.use(popper);
 
-// Tooltip component with metrics information
+
+const ExportButtons = ({ onExport }) => (
+  <div className="absolute bottom-4 right-4 space-x-2">
+    <button
+      onClick={() => onExport('svg')}
+      className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+    >
+      Export SVG
+    </button>
+    <button
+      onClick={() => onExport('png')}
+      className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+    >
+      Export PNG
+    </button>
+    <button
+      onClick={() => onExport('json')}
+      className="px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+    >
+      Export JSON
+    </button>
+  </div>
+);
+
 const Legend = () => (
   <div className="absolute top-4 right-4 bg-white/95 p-4 rounded-lg shadow-lg border border-gray-200 w-64">
     <h3 className="font-semibold mb-3 text-gray-800">Graph Legend</h3>
@@ -91,13 +114,13 @@ const ProjectGraph = ({ data }) => {
     name: 'dagre',
     rankDir: 'TB',
     padding: 50,
-    spacingFactor: 1.5,
+    spacingFactor: 2,
     nodeDimensionsIncludeLabels: true,
     animate: true,
     animationDuration: 500,
     fit: true,
-    rankSep: 100,
-    nodeSep: 50
+    rankSep: 120,
+    nodeSep: 60
   };
 
   const stylesheet = [
@@ -246,39 +269,42 @@ const ProjectGraph = ({ data }) => {
         const node = event.target;
         const data = node.data();
         const metadata = data.metadata || {};
-
+        
+        const renderedPosition = node.renderedPosition();
         const tooltip = document.createElement('div');
         tooltip.className = 'cy-tooltip';
         tooltip.innerHTML = `
-          <div class="p-4 bg-white rounded-lg shadow-lg border">
+        <div class="p-4 bg-white rounded-lg shadow-lg border">
             <h3 class="font-semibold mb-2">${data.label}</h3>
             <div class="space-y-1 text-sm">
-              <p><span class="font-medium">Complexity:</span> ${metadata.complexity || 'N/A'}</p>
-              <p><span class="font-medium">Lines:</span> ${metadata.lines || 'N/A'}</p>
-              <p><span class="font-medium">Parameters:</span> ${metadata.parameters || 'N/A'}</p>
-              <p><span class="font-medium">Line Number:</span> ${metadata.line_number || 'N/A'}</p>
-              ${metadata.code_smells?.length ? `
+            <p><span class="font-medium">Complexity:</span> ${metadata.complexity || 'N/A'}</p>
+            <p><span class="font-medium">Lines of Code:</span> ${metadata.lines || 'N/A'}</p>
+            <p><span class="font-medium">Parameters:</span> ${metadata.parameters || 'N/A'}</p>
+            <p><span class="font-medium">Defined at Line:</span> ${metadata.line_number || 'N/A'}</p>
+            ${metadata.is_dead_code ? 
+                '<p class="text-red-600 font-medium">⚠️ Potentially Dead Code</p>' 
+                : ''}
+            ${metadata.code_smells?.length ? `
                 <div class="mt-2">
-                  <span class="font-medium text-red-600">Code Smells:</span>
-                  <ul class="ml-4 list-disc text-red-600">
+                <span class="font-medium text-red-600">Code Smells:</span>
+                <ul class="ml-4 list-disc text-red-600">
                     ${metadata.code_smells.map(smell => `<li>${smell}</li>`).join('')}
-                  </ul>
+                </ul>
                 </div>
-              ` : ''}
-              ${metadata.docstring ? `
+            ` : ''}
+            ${metadata.docstring ? `
                 <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
-                  <span class="font-medium">Documentation:</span>
-                  <p class="mt-1">${metadata.docstring}</p>
+                <span class="font-medium">Documentation:</span>
+                <p class="mt-1">${metadata.docstring}</p>
                 </div>
-              ` : ''}
+            ` : ''}
             </div>
-          </div>
+        </div>
         `;
 
-        const renderedPosition = event.renderedPosition || event.target.renderedPosition();
         tooltip.style.position = 'absolute';
-        tooltip.style.left = `${renderedPosition.x + 10}px`;
-        tooltip.style.top = `${renderedPosition.y - 20}px`;
+        tooltip.style.left = `${renderedPosition.x }px`;
+        tooltip.style.top = `${renderedPosition.y + 570}px`;
         document.body.appendChild(tooltip);
       });
 
@@ -298,6 +324,48 @@ const ProjectGraph = ({ data }) => {
     }
   }, [data]);
 
+
+  const handleExport = async (format: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/export/${format}`, {
+        method: 'GET'
+      });
+
+      console.log(response)
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      if (format === 'json') {
+        const data = await response.json();
+        // Download JSON file
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `code_analysis.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        // For other formats, use the blob from the response
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `code_analysis.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
   return (
     <div className="relative h-[600px] border rounded-lg overflow-hidden shadow-lg">
       <CytoscapeComponent
@@ -316,10 +384,12 @@ const ProjectGraph = ({ data }) => {
       {showLegend && <Legend />}
       <button
         onClick={() => setShowLegend(!showLegend)}
-        className="absolute top-4 left-4 bg-white p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
+        className="absolute top-6 right-6 bg-white p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors"
       >
         {showLegend ? '✕' : 'ℹ️'}
       </button>
+
+      {/* <ExportButtons onExport={handleExport} /> */}
     </div>
   );
 };
