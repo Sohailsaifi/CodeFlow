@@ -5,6 +5,7 @@ import dagre from 'cytoscape-dagre';
 import popper from 'cytoscape-popper';
 import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
+import { API_URL } from '../config';
 
 // Register the required extensions
 Cytoscape.use(dagre);
@@ -327,7 +328,7 @@ const ProjectGraph = ({ data }) => {
 
   const handleExport = async (format: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/export/${format}`, {
+      const response = await fetch(`${API_URL}/export/${format}`, {
         method: 'GET'
       });
 

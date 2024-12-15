@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
-
+import { API_URL } from '../config';
 const ProjectUploader = ({ onUploadSuccess }) => {
     const [uploadType, setUploadType] = useState('file');
     const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ const ProjectUploader = ({ onUploadSuccess }) => {
 
     try {
       const endpoint = uploadType === 'file' ? '/upload-file/' : '/analyze-project/';
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         body: formData,
       });
