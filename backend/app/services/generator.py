@@ -1,4 +1,4 @@
-from services.parser import FlowchartParser
+from app.services.parser import FlowchartParser
 from models.schemas import FlowchartNode, FlowchartEdge
 from typing import Dict
 
