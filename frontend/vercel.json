@@ -1,4 +1,3 @@
-# Create vercel.json
 {
   "rewrites": [
     {
