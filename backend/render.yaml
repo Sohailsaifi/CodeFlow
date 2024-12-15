@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: CodeFlow
+    name: flowchart-backend
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.8
+        value: 3.9
