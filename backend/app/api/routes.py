@@ -1,9 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Response
 from fastapi.responses import JSONResponse, FileResponse
-from models.schemas import FlowchartRequest
+from app.models.schemas import FlowchartRequest
 from app.services.generator import FlowchartGenerator
 import os
-from services.project_analyzer import ProjectAnalyzer
+from app.services.project_analyzer import ProjectAnalyzer
 import tempfile
 import shutil
 import zipfile
