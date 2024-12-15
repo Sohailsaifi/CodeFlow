@@ -8,7 +8,7 @@ app = FastAPI(title="Dynamic Flowchart Generator")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("CORS_ORIGINS", "http://localhost:3000")],
+    allow_origins=[os.getenv("CORS_ORIGINS", "http://localhost:3000"), "https://code-flow-eta.vercel.app"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
